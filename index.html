@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Polygon 公益捐赠平台</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    body{max-width:600px;margin:30px auto;font-family:Arial;padding:20px;background:#121212;color:#fff}
+    .box{border:1px solid #333;padding:20px;border-radius:12px;margin:20px 0;background:#1e1e1e}
+    button{background:#7b3fe4;color:white;padding:12px 20px;border:none;border-radius:8px;cursor:pointer;font-size:16px}
+    input,textarea{width:100%;padding:12px;margin:10px 0;background:#252525;color:#fff;border:1px solid #444;border-radius:8px;font-size:16px}
+    .item{border-bottom:1px solid #333;padding:12px 0}
+  </style>
+</head>
+<body>
+  <h1 style="text-align:center;">🟣 Polygon 链捐赠平台</h1>
+
+  <div class="box">
+    <button id="connect">连接钱包</button>
+    <p id="address"></p>
+  </div>
+
+  <div class="box">
+    <h3>我要捐赠</h3>
+    <input id="amount" placeholder="捐赠金额 MATIC" type="number" step="0.0001">
+    <textarea id="msg" placeholder="留言（可选）"></textarea>
+    <button id="donate">确认捐赠</button>
+  </div>
+
+  <div class="box">
+    <h3>总捐赠：<span id="total">0</span> MATIC</h3>
+    <p>合约余额：<span id="balance">0</span> MATIC</p>
+  </div>
+
+  <div class="box">
+    <h3>捐赠记录</h3>
+    <div id="list"></div>
+  </div>
+
+<script>
+// ==========================
+// 已自动填好你的信息
+// ==========================
+const CONTRACT_ADDRESS = "0xa4142426c367d82A9Cd2f4C21684a37Cd05214dE";
+const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"donor","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"time","type":"uint256"}],"name":"Donated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"time","type":"uint256"}],"name":"Withdrawn","type":"event"},{"inputs":[],"name":"admin","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"message","type":"string"}],"name":"donate","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"donations","outputs":[{"internalType":"address","name":"donor","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"time","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getAllDonations","outputs":[{"components":[{"internalType":"address","name":"donor","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"time","type":"uint256"}],"internalType":"struct DonationPolygon.DonationRecord[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalDonations","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"withdrawAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"stateMutability":"payable","type":"receive"}];
+
+let provider, signer, contract;
+
+async function connect() {
+  provider = new ethers.providers.Web3Provider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  signer = provider.getSigner();
+  const addr = await signer.getAddress();
+  document.getElementById("address").innerText = "钱包：" + addr;
+  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+  loadData();
+}
+
+async function donate() {
+  const amount = document.getElementById("amount").value;
+  const msg = document.getElementById("msg").value;
+  const tx = await contract.donate(msg, { value: ethers.utils.parseEther(amount) });
+  await tx.wait();
+  alert("捐赠成功！");
+  loadData();
+}
+
+async function loadData() {
+  const bal = await contract.getBalance();
+  const total = await contract.totalDonations();
+  document.getElementById("balance").innerText = ethers.utils.formatEther(bal);
+  document.getElementById("total").innerText = ethers.utils.formatEther(total);
+
+  const list = await contract.getAllDonations();
+  const dom = document.getElementById("list");
+  dom.innerHTML = "";
+  for (let item of list) {
+    dom.innerHTML += `
+      <div class="item">
+        <div>${item.donor}</div>
+        <div style="color:gold">${ethers.utils.formatEther(item.amount)} MATIC</div>
+        <div style="color:#aaa">${item.message}</div>
+      </div>
+    `;
+  }
+}
+
+document.getElementById("connect").onclick = connect;
+document.getElementById("donate").onclick = donate;
+</script>
+</body>
+</html>
